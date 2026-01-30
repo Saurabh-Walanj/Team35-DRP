@@ -12,6 +12,5 @@ public interface RationShopRepository  extends JpaRepository<RationShop, Integer
 	
 	Optional<RationShop> findByShopkeeperId(Integer shopkeeperId);
     boolean existsByShopkeeperId(Integer shopkeeperId);
-//	Optional<User> findByShopkeeperId(Integer shopkeeperId);
 	
 }

@@ -21,45 +21,96 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class RationDistributionLog {
 
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Integer distributionId;
+	 @Id
+	    @GeneratedValue(strategy = GenerationType.IDENTITY)
+	    private Integer distributionId;
 
-	@NotNull
-	@Column(nullable = false, length = 12)
-	private String cardNumber;
+	    @ManyToOne(fetch = FetchType.LAZY)
+	    @JoinColumn(name = "card_number", nullable = false)
+	    private RationCard rationCard;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "cardNumber", insertable = false, updatable = false)
-	private RationCard rationCard;
+	    @ManyToOne(fetch = FetchType.LAZY)
+	    @JoinColumn(name = "shop_id", nullable = false)
+	    private RationShop shop;
 
-	@NotNull
-	@Column(nullable = false)
-	private Integer shopId;
+	    @Enumerated(EnumType.STRING)
+	    @Column(nullable = false)
+	    private GrainType grain;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "shopId", insertable = false, updatable = false)
-	private RationShop shop;
+	    @Column(nullable = false)
+	    private Double quantityGiven;
 
-	@NotNull
-	@Enumerated(EnumType.STRING)
-	@Column(nullable = false)
-	private GrainType grain;
+	    @Column(nullable = false)
+	    private String distributionMonth;
 
-	@NotNull
-	@Column(nullable = false, precision = 10, scale = 2)
-	private BigDecimal quantityGiven;
+	    @CreationTimestamp
+	    private LocalDateTime distributionDate;
 
-	@NotNull
-	@Column(nullable = false)
-	private String distributionMonth;
+	    @Enumerated(EnumType.STRING)
+	    @Column(nullable = false)
+	    private DistributionStatus status;
 
-	@CreationTimestamp
-	@Column(name = "distribution_date", nullable = false, updatable = false)
-	private LocalDateTime distributionDate;
+	public Integer getDistributionId() {
+		return distributionId;
+	}
 
-	@NotNull
-	@Enumerated(EnumType.STRING)
-	@Column(nullable = false)
-	private DistributionStatus status;
+	public void setDistributionId(Integer distributionId) {
+		this.distributionId = distributionId;
+	}
+
+	public RationCard getRationCard() {
+		return rationCard;
+	}
+
+	public void setRationCard(RationCard rationCard) {
+		this.rationCard = rationCard;
+	}
+
+	public RationShop getShop() {
+		return shop;
+	}
+
+	public void setShop(RationShop shop) {
+		this.shop = shop;
+	}
+
+	public GrainType getGrain() {
+		return grain;
+	}
+
+	public void setGrain(GrainType grain) {
+		this.grain = grain;
+	}
+
+	public Double getQuantityGiven() {
+		return quantityGiven;
+	}
+
+	public void setQuantityGiven(Double quantityGiven) {
+		this.quantityGiven = quantityGiven;
+	}
+
+	public String getDistributionMonth() {
+		return distributionMonth;
+	}
+
+	public void setDistributionMonth(String distributionMonth) {
+		this.distributionMonth = distributionMonth;
+	}
+
+	public LocalDateTime getDistributionDate() {
+		return distributionDate;
+	}
+
+	public void setDistributionDate(LocalDateTime distributionDate) {
+		this.distributionDate = distributionDate;
+	}
+
+	public DistributionStatus getStatus() {
+		return status;
+	}
+
+	public void setStatus(DistributionStatus status) {
+		this.status = status;
+	}
 }

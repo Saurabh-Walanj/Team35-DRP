@@ -24,7 +24,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class MonthlyEntitlement {
-	@Id
+    @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer entitlementId;
 
@@ -34,4 +34,28 @@ public class MonthlyEntitlement {
 
     @Column(nullable = false)
     private Double quantityPerPerson;
+
+    public Integer getEntitlementId() {
+        return entitlementId;
+    }
+
+    public void setEntitlementId(Integer entitlementId) {
+        this.entitlementId = entitlementId;
+    }
+
+    public GrainType getGrain() {
+        return grain;
+    }
+
+    public void setGrain(GrainType grain) {
+        this.grain = grain;
+    }
+
+    public Double getQuantityPerPerson() {
+        return quantityPerPerson;
+    }
+
+    public void setQuantityPerPerson(Double quantityPerPerson) {
+        this.quantityPerPerson = quantityPerPerson;
+    }
 }

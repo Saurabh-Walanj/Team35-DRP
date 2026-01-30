@@ -1,0 +1,347 @@
+import { adminAPI, shopkeeperAPI } from '../../api';
+import { toast } from 'react-toastify';
+import { getUserId } from '../../utils/authUtils';
+import { useEffect, useState } from 'react';
+
+const DistributeRation = () => {
+    const [cardNumber, setCardNumber] = useState('');
+    const [citizenData, setCitizenData] = useState(null);
+    const [entitlements, setEntitlements] = useState([]);
+    const [grainType, setGrainType] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [citizens, setCitizens] = useState([]);
+
+    const [showOtpModal, setShowOtpModal] = useState(false);
+    const [otp, setOtp] = useState('');
+    const [otpError, setOtpError] = useState('');
+    const [otpLoading, setOtpLoading] = useState(false);
+
+    useEffect(() => {
+        fetchEntitlements();
+        fetchMyCitizens();
+    }, []);
+
+    const fetchEntitlements = async () => {
+        try {
+            const data = await shopkeeperAPI.getEntitlements();
+            setEntitlements(data || []);
+        } catch (err) {
+            console.error('Error fetching entitlements:', err);
+            toast.error('Failed to load entitlements. Please contact admin.');
+        }
+    };
+
+    const fetchMyCitizens = async () => {
+        try {
+            const shopkeeperId = getUserId();
+            const data = await shopkeeperAPI.getCitizensUnderShop(shopkeeperId);
+            setCitizens(data || []);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const performSearch = async (cardNum) => {
+        setLoading(true);
+        try {
+            const localCitizen = citizens.find(c => c.cardNumber === cardNum);
+            if (localCitizen) {
+                setCitizenData(localCitizen);
+                setGrainType('');
+                return;
+            }
+
+            const shopkeeperId = getUserId();
+            const data = await shopkeeperAPI.getCitizensUnderShop(shopkeeperId);
+            const citizen = data.find(c => c.cardNumber === cardNum);
+
+            if (!citizen) {
+                toast.error('Citizen not found under your shop');
+                setCitizenData(null);
+            } else {
+                setCitizenData(citizen);
+                setGrainType('');
+            }
+        } catch {
+            toast.error('Search failed');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSearch = () => {
+        if (!cardNumber || cardNumber.length < 10) {
+            toast.error('Enter valid ration card number');
+            return;
+        }
+        performSearch(cardNumber);
+    };
+
+    const handleCitizenSelect = (e) => {
+        const value = e.target.value;
+        setCardNumber(value);
+        if (!value) {
+            setCitizenData(null);
+            setGrainType('');
+            return;
+        }
+        const citizen = citizens.find(c => c.cardNumber === value);
+        citizen ? setCitizenData(citizen) : performSearch(value);
+    };
+
+    const handleDistributeClick = async () => {
+        if (!grainType) {
+            toast.error('Select grain type');
+            return;
+        }
+
+        if (!citizenData?.citizenEmail) {
+            toast.error('Citizen email not found');
+            return;
+
+        }
+
+        try {
+
+            setOtpLoading(true);
+            const shopkeeperId = getUserId();
+
+            const payload = {
+                shopkeeperId: parseInt(shopkeeperId),
+                citizenEmail: citizenData.citizenEmail,
+                cardNumber: cardNumber
+            };
+
+            await shopkeeperAPI.generateOtp(payload);
+
+            toast.success('OTP sent to citizen email');
+            setOtp('');
+            setOtpError('');
+            setShowOtpModal(true);
+        } catch (err) {
+            console.error('OTP Generation Error:', err);
+            toast.error(err.response?.data?.message || 'Failed to generate OTP');
+        } finally {
+            setOtpLoading(false);
+        }
+    };
+
+    const verifyOtpAndDistribute = async () => {
+        if (otp.length !== 6) {
+            setOtpError('Enter valid 6-digit OTP');
+            return;
+        }
+
+        try {
+            const payload = {
+                cardNumber,
+                grain: grainType,
+                otp
+            };
+
+            await shopkeeperAPI.distributeRation(payload);
+
+            toast.success('Ration distributed successfully');
+            setShowOtpModal(false);
+            setCitizenData(null);
+            setCardNumber('');
+            setGrainType('');
+            setOtp('');
+        } catch (err) {
+            setOtpError(err?.response?.data?.message || 'Invalid OTP');
+        }
+    };
+
+    const selectedEntitlement = grainType
+        ? entitlements.find(e => (e.grain || e.Grain) === grainType)
+        : null;
+
+    const qtyPerPerson = selectedEntitlement
+        ? (selectedEntitlement.quantityPerPerson || selectedEntitlement.QuantityPerPerson)
+        : 0;
+
+    const calculatedQuantity = citizenData
+        ? citizenData.familyMemberCount * qtyPerPerson
+        : 0;
+
+    return (
+        <div className="animate-in fade-in duration-500">
+            {/* <div className="mb-8 border-b-2 border-[#FFFBF0] pb-6">
+                <h3 className="text-2xl font-bold text-[#003D82]">Ration Distribution Tab</h3>
+            </div> */}
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+                <div className="space-y-6">
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm text-gray-400 font-bold uppercase mb-2">Select Citizen</label>
+                                <select
+                                    value={cardNumber}
+                                    onChange={handleCitizenSelect}
+                                    className="w-full px-4 py-3 border-2 border-gray-100 rounded-xl focus:border-black focus:outline-none transition-all bg-white font-medium"
+                                >
+                                    <option value="">-- Choose from Verified List --</option>
+                                    {citizens.map(c => (
+                                        <option key={c.cardNumber} value={c.cardNumber}>
+                                            {c.headOfFamilyName} ({c.cardNumber})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="relative py-4">
+                                <div className="absolute inset-0 flex items-center">
+                                    <span className="w-full border-t border-gray-100"></span>
+                                </div>
+                                <div className="relative flex justify-center text-xs uppercase">
+                                    <span className="bg-white px-4 text-gray-400 font-bold ">or Manual Search</span>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    maxLength={16}
+                                    value={cardNumber}
+                                    onChange={e => setCardNumber(e.target.value)}
+                                    className="flex-1 px-4 py-3 border-2 border-gray-100 rounded-xl focus:border-black  focus:outline-none transition-all font-mono"
+                                    placeholder="Enter Card ID manually"
+                                />
+                                <button
+                                    onClick={handleSearch}
+                                    disabled={loading}
+                                    className="px-6 py-3 bg-[#003D82] text-white rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-[#002A5C] transition-all shadow-md active:scale-95"
+                                >
+                                    {loading ? '...' : 'Verify'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <div className="space-y-6">
+                    {citizenData ? (
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 animate-in slide-in-from-right-4 duration-500">
+                            <div><span className='text-sm mb-5 font-bold uppercase'>Citizen details</span></div>
+                            <div className=" rounded-xl p-6 border  mb-8 grid grid-cols-2 gap-y-6 gap-x-4">
+                                <div>
+                                    <p className="text-[12px] font-bold uppercase mb-1">Ration Card Number</p>
+                                    <p className="text-sm font-semibold text-[#1A1A2E] ">{citizenData.cardNumber}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[12px] font-bold uppercase mb-1">Head of Family</p>
+                                    <p className="text-sm font-semibold text-[#1A1A2E]">{citizenData.headOfFamilyName}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[12px] font-bold uppercase mb-1">Family Members Count</p>
+                                    <p className="text-lg font-semibold text-[#1A1A2E]">{citizenData.familyMemberCount} </p>
+                                </div>
+                                <div className="truncate">
+                                    <p className="text-[12px] font-bold uppercase mb-1">Residential Area</p>
+                                    <p className="text-xs font-semibold text-gray-600 truncate">{citizenData.address}</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-6">
+                                <div>
+                                    <label className="block text-[12px] text-gray-400 font-bold mb-2 ml-1">Commodity Selection</label>
+                                    <select
+                                        value={grainType}
+                                        onChange={e => setGrainType(e.target.value)}
+                                        className="w-full px-4 py-3 border-2 border-gray-100 rounded-xl focus:border-black focus:outline-none transition-all bg-white font-bold "
+                                    >
+                                        <option value="">-- Choose Grain Item --</option>
+                                        {entitlements.map(e => (
+                                            <option key={e.entitlementId} value={e.grain || e.Grain}>
+                                                {e.grain || e.Grain}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {grainType && (
+                                    <div className="bg-blue-800 text-white rounded-sm px-6 py-2  flex justify-between items-center shadow-lg transform scale-105 transition-transform">
+                                        <div>
+                                            <p className="text-l font-semibold  mb-1">Total Quantity {calculatedQuantity} KGs</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <button
+                                    onClick={handleDistributeClick}
+                                    disabled={otpLoading || !grainType}
+                                    className="w-full py-4 bg-green-700 text-white rounded-lg font-bold text-sm hover:bg-green-600 transition-all shadow-xl active:scale-95 uppercase tracking-widest disabled:bg-gray-200 disabled:shadow-none"
+                                >
+                                    {otpLoading ? 'Generating OTP...' : 'Generate  OTP'}
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="h-full min-h-[400px] border-2 border-gray-200 rounded-2xl flex flex-col items-center justify-center text-center p-12 bg-gray-50/30">
+                            <h4 className="text-lg font-bold text-gray-400 uppercase tracking-tight">Pending Resident Selection</h4>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* OTP VERIFICATION MODAL */}
+            {showOtpModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-3xl p-10 w-full max-w-md shadow-2xl ">
+                        <div className="text-center mb-8">
+                            <h2 className="text-2xl font-bold text-[#003D82] tracking-tight">OTP Verification</h2>
+                            <p className="text-sm text-gray-500 mt-2">
+                                An OTP has been Send to<br />
+                                <strong className="text-gray-800">{citizenData.citizenEmail}</strong>
+                            </p>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div>
+                                <input
+                                    type="text"
+                                    maxLength={6}
+                                    value={otp}
+                                    onChange={e => setOtp(e.target.value)}
+                                    className="w-full px-4 py-1 border-2 border-gray-100 rounded-2xl text-center text-xl  font-black tracking-[0.5em]  focus:outline-none transition-all shadow-inner bg-gray-50"
+                                    placeholder="000000"
+                                />
+                                {otpError && (
+                                    <p className="text-[12px] font-bold  mt-3 text-center animate-pulse">{otpError}</p>
+                                )}
+                            </div>
+
+                            <div className="flex flex-col gap-3">
+                                <button
+                                    onClick={verifyOtpAndDistribute}
+                                    className="w-full py-2 bg-[#003D82] text-white rounded-xl font-bold text-base hover:bg-[#002A5C] transition-all shadow-lg active:scale-95"
+                                >
+                                    Verify
+                                </button>
+                                <button
+                                    onClick={() => setShowOtpModal(false)}
+                                    className="w-full py-3 text-xs font-bold text-gray-400 uppercase tracking-widest hover:text-red-500 transition-colors"
+                                >
+                                    Cancel Transaction
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* <div className="mt-8 pt-6 border-t border-gray-100">
+                            <p className="text-[9px] text-gray-400 text-center uppercase font-bold tracking-[0.15em] leading-relaxed">
+                                Security Code expires in 5 minutes.<br />
+                                Do not share this code with anyone.
+                            </p>
+                        </div> */}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default DistributeRation;

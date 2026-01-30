@@ -26,8 +26,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @AllArgsConstructor
 public class RationShopStock {
-	
-	@Id
+
+    @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer stockId;
 
@@ -37,12 +37,52 @@ public class RationShopStock {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private GrainType  grain;
+    private GrainType grain;
 
     @Column(nullable = false)
     private Double availableStock;
 
     @Column(nullable = false)
     private LocalDateTime lastUpdated = LocalDateTime.now();
+
+    public Integer getStockId() {
+        return stockId;
+    }
+
+    public void setStockId(Integer stockId) {
+        this.stockId = stockId;
+    }
+
+    public RationShop getShop() {
+        return shop;
+    }
+
+    public void setShop(RationShop shop) {
+        this.shop = shop;
+    }
+
+    public GrainType getGrain() {
+        return grain;
+    }
+
+    public void setGrain(GrainType grain) {
+        this.grain = grain;
+    }
+
+    public Double getAvailableStock() {
+        return availableStock;
+    }
+
+    public void setAvailableStock(Double availableStock) {
+        this.availableStock = availableStock;
+    }
+
+    public LocalDateTime getLastUpdated() {
+        return lastUpdated;
+    }
+
+    public void setLastUpdated(LocalDateTime lastUpdated) {
+        this.lastUpdated = lastUpdated;
+    }
 
 }

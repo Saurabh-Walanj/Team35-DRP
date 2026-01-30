@@ -1,6 +1,7 @@
 package com.cdac.RationSahayata.serviceImpl;
 
 import java.util.ArrayList;
+
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -31,6 +32,8 @@ import com.cdac.RationSahayata.exception.BadRequestException;
 import com.cdac.RationSahayata.exception.UnauthorizedException;
 import com.cdac.RationSahayata.repository.*;
 import com.cdac.RationSahayata.service.AdminService;
+
+import jakarta.transaction.Transactional;
 
 @Service
 public class AdminServiceImpl implements AdminService {
@@ -107,51 +110,80 @@ public class AdminServiceImpl implements AdminService {
 	// approve shopkeeper 
 	@Override
 	public Map<String, Object> approveShopkeeper(Integer shopkeeperId) {
-		User shopkeeper = userRepository.findById(shopkeeperId)
-                .orElseThrow(() -> new BadRequestException("Shopkeeper not found"));
+	    User shopkeeper = userRepository.findById(shopkeeperId)
+	            .orElseThrow(() -> new BadRequestException("Shopkeeper not found"));
 
-        if (shopkeeper.getRole() != UserRole.SHOPKEEPER) {
-            throw new BadRequestException("User is not a shopkeeper");
-        }
+	    if (shopkeeper.getRole() != UserRole.SHOPKEEPER) {
+	        throw new BadRequestException("User is not a shopkeeper");
+	    }
 
-        shopkeeper.setStatus(UserStatus.Active);
-        userRepository.save(shopkeeper);
+	    // Activate the shopkeeper user
+	    shopkeeper.setStatus(UserStatus.Active);
+	    shopkeeper = userRepository.save(shopkeeper);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("message", "Shopkeeper approved successfully");
-        return response;
+	    // Also activate the shop
+	    RationShop shop = rationShopRepository.findByShopkeeperId(shopkeeperId)
+	            .orElseThrow(() -> new BadRequestException("Shop not found for this shopkeeper"));
+	    
+	    shop.setStatus(ShopStatus.ACTIVE);
+	    shop = rationShopRepository.save(shop);
+
+	    Map<String, Object> response = new HashMap<>();
+	    response.put("message", "Shopkeeper approved successfully");
+	    response.put("shopkeeperId", shopkeeperId);
+	    response.put("shopkeeperStatus", shopkeeper.getStatus());
+	    response.put("shopStatus", shop.getStatus());
+
+	    return response;
 	}
 
 	
 	@Override
+	@Transactional
 	public Map<String, Object> suspendShopkeeper(Integer shopkeeperId) {
-		User shopkeeper = userRepository.findById(shopkeeperId).
-				orElseThrow(()-> new BadRequestException("Shopkeeper not found"));
-		if (shopkeeper.getRole() != UserRole.SHOPKEEPER) {
-            throw new BadRequestException("User is not a shopkeeper");
-        }
-		RationShop shop = rationShopRepository.findByShopkeeperId(shopkeeperId)
-                .orElseThrow(() -> new BadRequestException("Shop not found for this shopkeeper"));
 
-        String actionMessage;
+	    
+	    User shopkeeper = userRepository.findById(shopkeeperId)
+	            .orElseThrow(() -> new BadRequestException("Shopkeeper not found"));
 
-        if (shop.getStatus() == ShopStatus.SUSPENDED && shopkeeper.getStatus() == UserStatus.Suspended) {
-            shopkeeper.setStatus(UserStatus.Active);
-            shop.setStatus(ShopStatus.ACTIVE);
-            actionMessage = "Shopkeeper activated successfully";
-        } else {
-            shopkeeper.setStatus(UserStatus.Suspended);
-            shop.setStatus(ShopStatus.SUSPENDED);
-            actionMessage = "Shopkeeper suspended successfully";
-        }
+	    if (shopkeeper.getRole() != UserRole.SHOPKEEPER) {
+	        throw new BadRequestException("User is not a shopkeeper");
+	    }
 
-        userRepository.save(shopkeeper);
-        rationShopRepository.save(shop);
+	  
+	    RationShop shop = rationShopRepository.findByShopkeeperId(shopkeeperId)
+	            .orElseThrow(() -> new BadRequestException("Shop not found for this shopkeeper"));
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("message", actionMessage);
-        return response;
+	    String actionMessage;
+
+	    
+	    if (shop.getStatus() == ShopStatus.SUSPENDED
+	            && shopkeeper.getStatus() == UserStatus.Suspended) {
+
+	        shopkeeper.setStatus(UserStatus.Active);
+	        shop.setStatus(ShopStatus.ACTIVE);
+	        actionMessage = "Shopkeeper activated successfully";
+
+	    } else {
+	        shopkeeper.setStatus(UserStatus.Suspended);
+	        shop.setStatus(ShopStatus.SUSPENDED);
+	        actionMessage = "Shopkeeper suspended successfully";
+	    }
+
+	  
+	    userRepository.save(shopkeeper);
+	    rationShopRepository.save(shop);
+
+	 
+	    Map<String, Object> response = new HashMap<>();
+	    response.put("message", actionMessage);
+	    response.put("shopkeeperId", shopkeeperId);
+	    response.put("shopkeeperStatus", shopkeeper.getStatus());
+	    response.put("shopStatus", shop.getStatus());
+
+	    return response;
 	}
+
 
 	@Override
 	public Map<String, Object> createShopForShopkeeper(Integer shopkeeperId, ShopApprovalDto dto) {
@@ -369,12 +401,12 @@ public class AdminServiceImpl implements AdminService {
         return logs.stream()
                 .sorted(Comparator.comparing(RationDistributionLog::getDistributionDate).reversed())
                 .map(d -> {
-                    RationCard rationCard = rationCardRepository.findById(d.getCardNumber()).orElse(null);
-                    RationShop shop = rationShopRepository.findById(d.getShopId()).orElse(null);
+                	RationCard rationCard = d.getRationCard();
+                    RationShop shop = d.getShop();
 
                     Map<String, Object> map = new HashMap<>();
                     map.put("distributionId", d.getDistributionId());
-                    map.put("cardNumber", d.getCardNumber());
+                    map.put("cardNumber", d.getRationCard());
                     map.put("headOfFamily",  rationCard.getHeadOfFamilyName() );
                     map.put("shopName",  shop.getShopName() );
                     map.put("grain", d.getGrain().toString());
@@ -384,6 +416,21 @@ public class AdminServiceImpl implements AdminService {
                     map.put("status", d.getStatus().toString());
                     return map;
                 }).collect(Collectors.toList());
+	}
+
+	@Override
+	public Map<String, Object> deleteEntitlement(Integer entitlementId) {
+		MonthlyEntitlement entitlement = monthlyEntitlementRepository.findById(entitlementId)
+	            .orElseThrow(() -> new BadRequestException("Entitlement not found"));
+
+	    String grainType = entitlement.getGrain().toString();
+	    
+	    monthlyEntitlementRepository.delete(entitlement);
+
+	    Map<String, Object> response = new HashMap<>();
+	    response.put("message", "Entitlement deleted successfully");
+	    response.put("deletedGrain", grainType);
+	    return response;
 	}
 
 	

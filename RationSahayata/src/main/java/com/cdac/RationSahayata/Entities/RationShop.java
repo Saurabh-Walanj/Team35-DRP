@@ -28,28 +28,84 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 
 public class RationShop {
-	    @Id
-	    @GeneratedValue(strategy = GenerationType.IDENTITY)
-	    private Integer shopId;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Integer shopId;
 
-	    @Column(nullable = false, length = 150)
-	    private String shopName;
+	@Column(nullable = false, length = 150)
+	private String shopName;
 
-	    @Column(nullable = false, length = 500)
-	    private String location;
+	@Column(nullable = false, length = 500)
+	private String location;
 
-	    @NotNull
-	    @Column(nullable = false)
-	    private Integer shopkeeperId;
+	@NotNull
+	@Column(nullable = false)
+	private Integer shopkeeperId;
 
-	    @OneToOne(fetch = FetchType.LAZY)
-	    @JoinColumn(name = "shopkeeperId", insertable = false, updatable = false)
-	    private User shopkeeper;
+	@OneToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "shopkeeperId", insertable = false, updatable = false)
+	private User shopkeeper;
 
-	    @Enumerated(EnumType.STRING)
-	    @Column(nullable = false)
-	    private ShopStatus status;
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false)
+	private ShopStatus status;
 
-	    @Column(nullable = false)
-	    private LocalDateTime createdAt = LocalDateTime.now();
+	@Column(nullable = false)
+	private LocalDateTime createdAt = LocalDateTime.now();
+
+	public Integer getShopId() {
+		return shopId;
+	}
+
+	public void setShopId(Integer shopId) {
+		this.shopId = shopId;
+	}
+
+	public String getShopName() {
+		return shopName;
+	}
+
+	public void setShopName(String shopName) {
+		this.shopName = shopName;
+	}
+
+	public String getLocation() {
+		return location;
+	}
+
+	public void setLocation(String location) {
+		this.location = location;
+	}
+
+	public Integer getShopkeeperId() {
+		return shopkeeperId;
+	}
+
+	public void setShopkeeperId(Integer shopkeeperId) {
+		this.shopkeeperId = shopkeeperId;
+	}
+
+	public User getShopkeeper() {
+		return shopkeeper;
+	}
+
+	public void setShopkeeper(User shopkeeper) {
+		this.shopkeeper = shopkeeper;
+	}
+
+	public ShopStatus getStatus() {
+		return status;
+	}
+
+	public void setStatus(ShopStatus status) {
+		this.status = status;
+	}
+
+	public LocalDateTime getCreatedAt() {
+		return createdAt;
+	}
+
+	public void setCreatedAt(LocalDateTime createdAt) {
+		this.createdAt = createdAt;
+	}
 }

@@ -1,60 +1,78 @@
 package com.cdac.RationSahayata.serviceImpl;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
-
+import com.cdac.RationSahayata.Controllers.AdminController;
+import com.cdac.RationSahayata.Entities.MonthlyEntitlement;
+import com.cdac.RationSahayata.Entities.Otp;
 import com.cdac.RationSahayata.Entities.RationCard;
 import com.cdac.RationSahayata.Entities.RationDistributionLog;
 import com.cdac.RationSahayata.Entities.RationShop;
 import com.cdac.RationSahayata.Entities.RationShopStock;
 import com.cdac.RationSahayata.Entities.StockAllocation;
 import com.cdac.RationSahayata.Entities.User;
-import com.cdac.RationSahayata.Enums.RationCardStatus;
-import com.cdac.RationSahayata.Enums.UserRole;
+import com.cdac.RationSahayata.Enums.*;
+
 import com.cdac.RationSahayata.dto.AddCitizenDto;
 import com.cdac.RationSahayata.dto.DistributeRationDto;
+import com.cdac.RationSahayata.dto.GenerateOtpDto;
+import com.cdac.RationSahayata.dto.UpdateCitizenDto;
 import com.cdac.RationSahayata.exception.BadRequestException;
 import com.cdac.RationSahayata.repository.MonthlyEntitlementRepository;
+import com.cdac.RationSahayata.repository.OtpRepository;
 import com.cdac.RationSahayata.repository.RationCardRepository;
 import com.cdac.RationSahayata.repository.RationDistributionLogRepository;
 import com.cdac.RationSahayata.repository.RationShopRepository;
 import com.cdac.RationSahayata.repository.RationShopStockRepository;
 import com.cdac.RationSahayata.repository.StockAllocationRepository;
 import com.cdac.RationSahayata.repository.UserRepository;
+import com.cdac.RationSahayata.service.EmailService;
 import com.cdac.RationSahayata.service.ShopkeeperService;
+
+import jakarta.transaction.Transactional;
 
 @Service
 public class ShopkeeperServiceImpl implements ShopkeeperService {
 
-	private final UserRepository userRepo;
-	private final RationShopRepository shopRepo;
-	private final RationCardRepository cardRepo;
-	private final MonthlyEntitlementRepository entitlementRepo;
-	private final StockAllocationRepository stockAllocationRepo;
-	private final RationShopStockRepository shopStockRepo;
-	private final RationDistributionLogRepository distributionLogRepo;
+	private final UserRepository userRepository;
+	private final RationShopRepository rationShopRepository;
+	private final RationCardRepository rationCardRepository;
+	private final MonthlyEntitlementRepository monthlyEntitlementRepository;
+	private final StockAllocationRepository stockAllocationRepository;
+	private final RationShopStockRepository rationShopStockRepository;
+	private final RationDistributionLogRepository distributionLogRepository;
+	private final OtpRepository otpRepository;
+	private final EmailService emailService;
 
 	public ShopkeeperServiceImpl(UserRepository userRepo, RationShopRepository shopRepo, RationCardRepository cardRepo,
 			MonthlyEntitlementRepository entitlementRepo, StockAllocationRepository stockAllocationRepo,
-			RationShopStockRepository shopStockRepo, RationDistributionLogRepository distributionLogRepo) {
-		this.userRepo = userRepo;
-		this.shopRepo = shopRepo;
-		this.cardRepo = cardRepo;
-		this.entitlementRepo = entitlementRepo;
-		this.stockAllocationRepo = stockAllocationRepo;
-		this.shopStockRepo = shopStockRepo;
-		this.distributionLogRepo = distributionLogRepo;
+			RationShopStockRepository shopStockRepo, RationDistributionLogRepository distributionLogRepo,
+			OtpRepository otpRepository, EmailService emailService) {
+		this.userRepository = userRepo;
+		this.rationShopRepository = shopRepo;
+		this.rationCardRepository = cardRepo;
+		this.monthlyEntitlementRepository = entitlementRepo;
+		this.stockAllocationRepository = stockAllocationRepo;
+		this.rationShopStockRepository = shopStockRepo;
+		this.distributionLogRepository = distributionLogRepo;
+		this.otpRepository = otpRepository;
+		this.emailService = emailService;
+
 	}
 
 	// get shopkkeper SHOP
 	@Override
 	public Map<String, Object> getMyShop(Integer shopkeeperId) {
 
-		RationShop shop = shopRepo.findByShopkeeperId(shopkeeperId)
+		RationShop shop = rationShopRepository.findByShopkeeperId(shopkeeperId)
 				.orElseThrow(() -> new BadRequestException("Shop not found"));
 
 		Map<String, Object> map = new HashMap<>();
@@ -69,67 +87,359 @@ public class ShopkeeperServiceImpl implements ShopkeeperService {
 
 	// add citizen
 	@Override
+	@Transactional
 	public Map<String, Object> addCitizen(Integer shopkeeperId, AddCitizenDto dto) {
 
-		RationShop shop = shopRepo.findByShopkeeperId(shopkeeperId)
-				.orElseThrow(() -> new BadRequestException("Shop not found"));
+		// 1Getshopkeeper
+		RationShop shop = rationShopRepository.findByShopkeeperId(shopkeeperId)
+				.orElseThrow(() -> new BadRequestException("You don't have a shop. Contact admin."));
 
-		User citizen = userRepo.findByEmail(dto.getCitizenEmail()).filter(u -> u.getRole() == UserRole.CITIZEN)
+		// Find citizen
+		User citizen = userRepository.findByEmail(dto.getCitizenEmail())
 				.orElseThrow(() -> new BadRequestException("Citizen not found"));
 
-		if (cardRepo.findByCitizenEmail(dto.getCitizenEmail()).isPresent()) {
-			throw new RuntimeException("Citizen already has ration card");
+		if (citizen.getRole() != UserRole.CITIZEN ||
+				citizen.getStatus() != UserStatus.Active) {
+			throw new BadRequestException("Citizen not found or not active");
 		}
 
-		RationCard card = new RationCard(dto.getCardNumber(), citizen, dto.getHeadOfFamilyName(),
-				dto.getFamilyMemberCount(), dto.getAddress(), shop, RationCardStatus.VERIFIED, LocalDateTime.now());
+		// Check if citizen already has ration card
+		if (rationCardRepository.existsByCitizen(citizen)) {
+			throw new BadRequestException("This citizen already has a ration card");
+		}
 
-		cardRepo.save(card);
+		// 5 Check duplicate card number
+		if (rationCardRepository.existsById(dto.getCardNumber())) {
+			throw new BadRequestException("This card number already exists");
+		}
 
-		return Map.of("message", "Citizen added successfully");
+		// Create ration card
+		RationCard rationCard = new RationCard();
+		rationCard.setCardNumber(dto.getCardNumber());
+		rationCard.setCitizen(citizen);
+		rationCard.setHeadOfFamilyName(dto.getHeadOfFamilyName());
+		rationCard.setFamilyMemberCount(dto.getFamilyMemberCount());
+		rationCard.setAddress(dto.getAddress());
+		rationCard.setShop(shop);
+		rationCard.setStatus(RationCardStatus.VERIFIED);
+
+		RationCard savedCard = rationCardRepository.save(rationCard);
+
+		// Prepare response
+		Map<String, Object> response = new HashMap<>();
+		response.put("message", "Citizen verified and added successfully");
+
+		Map<String, Object> cardData = new HashMap<>();
+		cardData.put("cardNumber", savedCard.getCardNumber());
+		cardData.put("headOfFamilyName", savedCard.getHeadOfFamilyName());
+		cardData.put("familyMemberCount", savedCard.getFamilyMemberCount());
+		cardData.put("address", savedCard.getAddress());
+		cardData.put("citizenEmail", citizen.getEmail());
+		cardData.put("citizenName", citizen.getName());
+		cardData.put("shopName", shop.getShopName());
+		cardData.put("shopLocation", shop.getLocation());
+		cardData.put("issueDate", savedCard.getIssueDate());
+		cardData.put("status", savedCard.getStatus());
+
+		response.put("rationCard", cardData);
+		return response;
 	}
 
 	// get citizens under that shopkeeper
 	@Override
-	public List<RationCard> getCitizens(Integer shopkeeperId) {
+	public List<Map<String, Object>> getCitizens(Integer shopkeeperId) {
 
-		RationShop shop = shopRepo.findByShopkeeperId(shopkeeperId)
+		RationShop shop = rationShopRepository.findByShopkeeperId(shopkeeperId)
 				.orElseThrow(() -> new BadRequestException("Shop not found"));
 
-		return null;
+		List<RationCard> citizens = rationCardRepository.findByShop(shop);
+
+		return citizens.stream().map(rc -> {
+			User citizen = rc.getCitizen(); // already loaded reference
+
+			Map<String, Object> map = new HashMap<>();
+			map.put("cardNumber", rc.getCardNumber());
+			map.put("headOfFamilyName", rc.getHeadOfFamilyName());
+			map.put("familyMemberCount", rc.getFamilyMemberCount());
+			map.put("address", rc.getAddress());
+			map.put("citizenName", citizen.getName());
+			map.put("citizenEmail", citizen.getEmail());
+			map.put("status", rc.getStatus().toString());
+			map.put("issueDate", rc.getIssueDate());
+
+			return map;
+		}).collect(Collectors.toList());
 	}
 
 	// stock allocation getting
 	@Override
-	public List<StockAllocation> getStockAllocations(Integer shopkeeperId) {
+	public List<Map<String, Object>> getStockAllocations(Integer shopkeeperId) {
 
-		RationShop shop = shopRepo.findByShopkeeperId(shopkeeperId)
+		RationShop shop = rationShopRepository.findByShopkeeperId(shopkeeperId)
 				.orElseThrow(() -> new BadRequestException("Shop not found"));
 
-		return null;
-	}
-	
-	// view current stock
-	@Override
-	public List<RationShopStock> viewCurrentStock(Integer shopId) {
-		return null;
+		List<StockAllocation> allocations = stockAllocationRepository
+				.findByShop_ShopId(shop.getShopId());
+
+		return allocations.stream().map(a -> {
+			Map<String, Object> map = new HashMap<>();
+			map.put("allocationId", a.getAllocationId());
+			map.put("monthYear", a.getMonthYear());
+			map.put("grain", a.getGrain().toString());
+			map.put("quantityAllocated", a.getQuantityAllocated());
+			map.put("status", a.getStatus().toString());
+			map.put("allocatedDate", a.getAllocatedDate());
+			return map;
+		}).collect(Collectors.toList());
 	}
 
+	// view current stock
+	@Override
+	public List<Map<String, Object>> viewCurrentStock(Integer shopId) {
+
+		List<RationShopStock> stocks = rationShopStockRepository.findByShop_ShopId(shopId);
+
+		if (stocks.isEmpty()) {
+			throw new BadRequestException("No stock available");
+		}
+
+		return stocks.stream().map(s -> {
+			Map<String, Object> map = new HashMap<>();
+			map.put("grain", s.getGrain().toString());
+			map.put("availableQuantity", s.getAvailableStock());
+			map.put("lastUpdated", s.getLastUpdated());
+			return map;
+		}).collect(Collectors.toList());
+	}
 
 	// distribution history
 	@Override
-	public List<RationDistributionLog> distributionHistory(Integer shopkeeperId) {
-		RationShop shop = shopRepo.findByShopkeeperId(shopkeeperId)
+	public List<Map<String, Object>> distributionHistory(Integer shopkeeperId) {
+
+		RationShop shop = rationShopRepository.findByShopkeeperId(shopkeeperId)
 				.orElseThrow(() -> new BadRequestException("Shop not found"));
 
-		return null;
+		List<RationDistributionLog> history = distributionLogRepository
+				.findByShop_ShopIdOrderByDistributionDateDesc(shop.getShopId());
+
+		return history.stream().map(d -> {
+
+			RationCard rationCard = d.getRationCard();
+
+			Map<String, Object> map = new HashMap<>();
+			map.put("distributionId", d.getDistributionId());
+			map.put("cardNumber", rationCard.getCardNumber());
+			map.put("headOfFamily",
+					rationCard != null ? rationCard.getHeadOfFamilyName() : "N/A");
+			map.put("grain", d.getGrain().toString());
+			map.put("quantityGiven", d.getQuantityGiven());
+			map.put("distributionMonth", d.getDistributionMonth());
+			map.put("distributionDate", d.getDistributionDate());
+			map.put("status", d.getStatus().toString());
+
+			return map;
+		}).collect(Collectors.toList());
 	}
 
 	@Override
+
 	public Map<String, Object> distributeRation(DistributeRationDto dto) {
-		// TODO Auto-generated method stub
-		return null;
+		// 1️ Verify OTP
+	    Otp otpEntry = otpRepository
+	            .findTopByCardNumberAndOtpAndIsUsedFalseAndExpiryTimeAfterOrderByCreatedAtDesc(
+	                    dto.getCardNumber(),
+	                    dto.getOtp(),
+	                    LocalDateTime.now())
+	            .orElseThrow(() -> new BadRequestException("Invalid or expired OTP"));
+
+	    // 2️ Get ration card
+	    RationCard rationCard = rationCardRepository.findById(dto.getCardNumber())
+	            .orElseThrow(() -> new BadRequestException("Ration card not found"));
+
+	    if (rationCard.getStatus() != RationCardStatus.VERIFIED) {
+	        throw new BadRequestException("Ration card not verified");
+	    }
+
+	    // 3️ Citizen
+	    User citizen = rationCard.getCitizen();
+
+	    // 4️ Shop (ENTITY, not ID)
+	    RationShop shop = rationCard.getShop(); 
+
+	    // 5️⃣ Monthly entitlement
+	    MonthlyEntitlement entitlement = monthlyEntitlementRepository
+	            .findByGrain(dto.getGrain())
+	            .orElseThrow(() -> new BadRequestException(
+	                    "Monthly entitlement not set for this grain"));
+
+	    // 6 Calculate quantity
+	    Double requiredQuantity =
+	            entitlement.getQuantityPerPerson()
+	                    *(rationCard.getFamilyMemberCount());
+
+	    // 7 Check stock (ENTITY-BASED)
+	    RationShopStock shopStock = rationShopStockRepository
+	            .findByShopAndGrain(shop, dto.getGrain()) 
+	            .orElseThrow(() -> new BadRequestException("Stock not found for this grain"));
+
+	    if (shopStock.getAvailableStock().compareTo(requiredQuantity) < 0) {
+	        throw new BadRequestException(
+	                "Insufficient stock. Available: " +
+	                        shopStock.getAvailableStock() +
+	                        " kg, Required: " + requiredQuantity + " kg");
+	    }
+
+	    //  Current month
+	    String distributionMonth =
+	            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM"));
+
+	    //  Create distribution log (ENTITY mapping)
+	    RationDistributionLog distributionLog = new RationDistributionLog();
+//	    distributionLog.setCardNumber(rationCard.getCardNumber());
+	    distributionLog.setRationCard(rationCard); // optional but good
+	    distributionLog.setShop(shop);             // ✅ FIX
+	    distributionLog.setGrain(dto.getGrain());
+	    distributionLog.setQuantityGiven(requiredQuantity);
+	    distributionLog.setDistributionMonth(distributionMonth);
+	    distributionLog.setStatus(DistributionStatus.SUCCESS);
+
+	    RationDistributionLog savedLog =
+	            distributionLogRepository.save(distributionLog);
+
+	    // Update stock
+	    shopStock.setAvailableStock(
+	            shopStock.getAvailableStock()-(requiredQuantity));
+	    rationShopStockRepository.save(shopStock);
+
+	    // 1️1 Mark OTP as used
+	    otpEntry.setIsUsed(true);
+	    otpRepository.save(otpEntry);
+
+	    // 1️2️Send email
+	    emailService.sendDistributionSuccessEmail(
+	            citizen.getEmail(),
+	            citizen.getName(),
+	            rationCard.getHeadOfFamilyName(),
+	            rationCard.getCardNumber(),
+	            dto.getGrain().toString(),
+	            requiredQuantity,
+	            distributionMonth,
+	            shop.getShopName(),
+	            shop.getLocation()
+	    );
+
+	    // 1️3️ Response
+	    Map<String, Object> response = new HashMap<>();
+	    response.put("message",
+	            "Ration distributed successfully and confirmation email sent");
+
+	    Map<String, Object> distributionData = new HashMap<>();
+	    distributionData.put("distributionId", savedLog.getDistributionId());
+	    distributionData.put("cardNumber", savedLog.getRationCard());
+	    distributionData.put("citizenName", citizen.getName());
+	    distributionData.put("citizenEmail", citizen.getEmail());
+	    distributionData.put("headOfFamily", rationCard.getHeadOfFamilyName());
+	    distributionData.put("shopName", shop.getShopName());
+	    distributionData.put("shopLocation", shop.getLocation());
+	    distributionData.put("grain", savedLog.getGrain().toString());
+	    distributionData.put("quantityGiven", savedLog.getQuantityGiven());
+	    distributionData.put("distributionMonth", savedLog.getDistributionMonth());
+	    distributionData.put("distributionDate", savedLog.getDistributionDate());
+	    distributionData.put("status", savedLog.getStatus().toString());
+
+	    response.put("distribution", distributionData);
+	    return response;
 	}
 
+	@Override
+	public Map<String, Object> generateOtp(GenerateOtpDto dto) {
+		String otpValue = String.format("%06d", new Random().nextInt(999999));
 
+		// Create OTP entry
+		Otp otp = new Otp();
+		otp.setShopkeeperId(dto.getShopkeeperId());
+		otp.setCitizenEmail(dto.getCitizenEmail());
+		otp.setCardNumber(dto.getCardNumber());
+		otp.setOtp(otpValue);
+		otp.setExpiryTime(LocalDateTime.now().plusMinutes(5));
+		otp.setIsUsed(false);
+
+		otpRepository.save(otp);
+
+		// Send OTP email
+		emailService.sendOtpEmail(dto.getCitizenEmail(), otpValue);
+
+		Map<String, Object> response = new HashMap<>();
+		response.put("message", "OTP generated and sent successfully");
+		return response;
+	}
+
+	@Override
+	public Map<String, Object> deleteCitizen(Integer shopkeeperId, String citizenEmail) {
+	    // Verify shopkeeper has this shop
+	    RationShop shop = rationShopRepository.findByShopkeeperId(shopkeeperId)
+	            .orElseThrow(() -> new BadRequestException("Shop not found"));
+
+	    // Get ration card
+	    RationCard rationCard = rationCardRepository.findByCitizenEmail(citizenEmail)
+	            .orElseThrow(() -> new BadRequestException("Ration card not found"));
+
+	    //  Compare shopId (Integer) with shopId (Integer)
+	    if (!rationCard.getShop().equals(shop.getShopId())) {
+	        throw new BadRequestException("This citizen does not belong to your shop");
+	    }
+
+	    String findCitizenEmail = rationCard.getCitizen().getEmail(); 
+	    String headOfFamily = rationCard.getHeadOfFamilyName();
+
+	    // Delete ration card
+	    rationCardRepository.delete(rationCard);
+
+	    Map<String, Object> response = new HashMap<>();
+	    response.put("message", "Citizen deleted successfully");
+	    response.put("citizenEmail", citizenEmail); 
+	    response.put("headOfFamily", headOfFamily);
+	    return response;
+	}
+
+	@Override
+	@Transactional
+	public Map<String, Object> updateCitizen(Integer shopkeeperId, String cardNumber, UpdateCitizenDto dto) {
+	    // Verify shopkeeper has this shop
+	    RationShop shop = rationShopRepository.findByShopkeeperId(shopkeeperId)
+	            .orElseThrow(() -> new BadRequestException("Shop not found"));
+
+	    // Get ration card
+	    RationCard rationCard = rationCardRepository.findById(cardNumber)
+	            .orElseThrow(() -> new BadRequestException("Ration card not found"));
+
+	    // Verify card belongs to this shop
+	    if (!rationCard.getShop().equals(shop.getShopId())) {
+	        throw new BadRequestException("This citizen does not belong to your shop");
+	    }
+
+	    // Update details
+	    rationCard.setHeadOfFamilyName(dto.getHeadOfFamilyName());
+	    rationCard.setFamilyMemberCount(dto.getFamilyMemberCount());
+	    rationCard.setAddress(dto.getAddress());
+
+	    RationCard updatedCard = rationCardRepository.save(rationCard);
+
+//	    User citizen = userRepository.findByEmail(rationCard.u).orElse(null);
+
+	    Map<String, Object> response = new HashMap<>();
+	    response.put("message", "Citizen details updated successfully");
+
+	    Map<String, Object> cardData = new HashMap<>();
+	    cardData.put("cardNumber", updatedCard.getCardNumber());
+//	    cardData.put("citizenEmail", updatedCard.getCitizenEmail());
+//	    cardData.put("citizenName", citizen);
+	    cardData.put("headOfFamilyName", updatedCard.getHeadOfFamilyName());
+	    cardData.put("familyMemberCount", updatedCard.getFamilyMemberCount());
+	    cardData.put("address", updatedCard.getAddress());
+	    cardData.put("status", updatedCard.getStatus().toString());
+
+	    response.put("updatedCitizen", cardData);
+	    return response;
+	}
 }

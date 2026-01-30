@@ -12,6 +12,7 @@ import java.util.Arrays;
 public class CorsConfig {
     
     @Bean
+    
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);

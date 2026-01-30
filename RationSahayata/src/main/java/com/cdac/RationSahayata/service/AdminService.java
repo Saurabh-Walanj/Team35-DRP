@@ -27,6 +27,7 @@ public interface AdminService {
     Map<String,Object> createEntitlement(MonthlyEntitlementDto  dto);
     List<Map<String, Object>> getAllEntitlements();
     Map<String, Object> updateEntitlement(MonthlyEntitlementDto dto);
+    Map<String, Object> deleteEntitlement(Integer entitlementId);
     
     // family 
     
