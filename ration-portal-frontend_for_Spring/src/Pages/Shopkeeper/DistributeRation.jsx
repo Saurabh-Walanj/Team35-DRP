@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 import { getUserId } from '../../utils/authUtils';
 import { useEffect, useState } from 'react';
 import PaymentModal from '../../Components/PaymentModal';
-import FeedbackModal from '../../Components/FeedbackModal';
+
 
 const DistributeRation = () => {
     const [cardNumber, setCardNumber] = useState('');
@@ -21,7 +21,7 @@ const DistributeRation = () => {
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [paymentAmount, setPaymentAmount] = useState(0);
 
-    const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+
 
     useEffect(() => {
         fetchEntitlements();
@@ -123,7 +123,25 @@ const DistributeRation = () => {
     const handlePaymentSuccess = async (details) => {
         // Payment successful, now generate OTP
         // details contains { transactionId, amount, etc. }
-        // You might want to save payment details here or pass transactionId to backend
+        try {
+            const shopkeeperId = getUserId();
+            const paymentPayload = {
+                shopkeeperId: parseInt(shopkeeperId),
+                citizenEmail: citizenData.citizenEmail,
+                citizenName: citizenData.headOfFamilyName,
+                transactionId: details.transactionId,
+                amount: details.amount,
+                paymentMethod: details.method || 'UPI'
+            };
+
+            // Save payment to backend
+            await shopkeeperAPI.sendPaymentSuccessEmail(paymentPayload);
+            toast.success('Payment recorded successfully');
+        } catch (error) {
+            console.error('Failed to save payment record:', error);
+            // We continue flow even if saving payment log fails, or you can block.
+            // For now, we log and continue to OTP.
+        }
 
         setShowPaymentModal(false);
         await generateOtp(details.transactionId);
@@ -186,8 +204,6 @@ const DistributeRation = () => {
             toast.success('Ration distributed successfully');
             setShowOtpModal(false);
 
-            // Show Feedback Modal instead of clearing immediately
-            setShowFeedbackModal(true);
         } catch (err) {
             console.error('Distribution Error:', err);
             setOtpError(err?.response?.data?.message || 'Invalid OTP or Distribution failed');
@@ -200,13 +216,7 @@ const DistributeRation = () => {
         setSelectedGrains([]);
         setOtp('');
         setShowOtpModal(false);
-        setShowFeedbackModal(false);
     };
-
-    const handleFeedbackSubmit = () => {
-        handleReset();
-    };
-
 
     return (
         <div className="animate-in fade-in duration-500">
@@ -434,15 +444,7 @@ const DistributeRation = () => {
                 </div>
             )}
 
-            {/* FEEDBACK MODAL */}
-            {showFeedbackModal && (
-                <FeedbackModal
-                    shopkeeperId={getUserId()}
-                    citizenEmail={citizenData?.citizenEmail}
-                    onSubmit={handleFeedbackSubmit}
-                    onClose={handleReset}
-                />
-            )}
+
         </div>
     );
 };

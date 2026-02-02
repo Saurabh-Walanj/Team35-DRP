@@ -25,6 +25,61 @@ const CitizenDistributionHistory = () => {
         }
     };
 
+    const handlePrint = (row) => {
+        const printWindow = window.open('', '', 'height=600,width=800');
+        printWindow.document.write('<html><head><title>Payment Receipt</title>');
+        printWindow.document.write('<style>');
+        printWindow.document.write(`
+            body { font-family: 'Courier New', Courier, monospace; padding: 20px; }
+            .receipt { border: 2px dashed #003D82; padding: 30px; max-width: 500px; margin: 0 auto; background: #fff; }
+            .header { text-align: center; border-bottom: 2px solid #003D82; padding-bottom: 20px; margin-bottom: 20px; }
+            .row { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 14px; }
+            .total { font-weight: bold; border-top: 1px solid #003D82; padding-top: 15px; margin-top: 15px; font-size: 18px; }
+            .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
+            .title { font-size: 24px; font-weight: bold; color: #003D82; margin: 0; }
+            .subtitle { font-size: 14px; color: #666; margin-top: 5px; }
+        `);
+        printWindow.document.write('</style></head><body>');
+        printWindow.document.write(`
+            <div class="receipt">
+                <div class="header">
+                    <h1 class="title">RATION SAHAYATA</h1>
+                    <p class="subtitle">Official Distribution Receipt</p>
+                </div>
+                <div class="row">
+                    <span>Date:</span>
+                    <span>${new Date(row.distributionDate).toLocaleString()}</span>
+                </div>
+                <div class="row">
+                    <span>Receipt ID:</span>
+                    <span>${row.transactionId || 'DIST-' + row.distributionId}</span>
+                </div>
+                <div class="row">
+                    <span>Commodity:</span>
+                    <span>${row.grain}</span>
+                </div>
+                 <div class="row">
+                    <span>Quantity:</span>
+                    <span>${row.quantityGiven} KG</span>
+                </div>
+                 <div class="row">
+                    <span>Shop Name:</span>
+                    <span>${row.shopName}</span>
+                </div>
+                <div class="total">
+                    <span>STATUS:</span>
+                    <span>${row.status}</span>
+                </div>
+                <div class="footer">
+                    <p>This is a computer generated receipt.</p>
+                </div>
+            </div>
+        `);
+        printWindow.document.write('</body></html>');
+        printWindow.document.close();
+        printWindow.print();
+    };
+
     const columns = [
         {
             key: 'distributionDate',
@@ -58,6 +113,23 @@ const CitizenDistributionHistory = () => {
                 );
             },
         },
+        {
+            key: 'actions',
+            label: 'Actions',
+            render: (row) => (
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => handlePrint(row)}
+                        className="p-2 text-gray-500 hover:text-[#003D82] hover:bg-blue-50 rounded-lg transition-all"
+                        title="Download Receipt"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                    </button>
+                </div>
+            )
+        }
     ];
 
     if (loading) {

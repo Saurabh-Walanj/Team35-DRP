@@ -98,6 +98,7 @@ export const adminAPI = {
 
     getAllFamilies: () => api.get('/admin/all-families'),
     getAllDistributionLogs: () => api.get('/admin/distribution-logs'),
+    getAllFeedback: () => api.get('/feedback/all'),
 };
 
 
