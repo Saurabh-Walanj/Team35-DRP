@@ -17,6 +17,7 @@ const AdminLayout = () => {
         { path: '/admin/distribution-logs', label: 'Distribution Logs' },
         { path: '/admin/distribution-logs-summary', label: 'Distribution Report' },
         { path: '/admin/payment-logs', label: 'Payment Logs' },
+        { path: '/admin/feedback-logs', label: 'Feedback Logs' },
     ];
 
     return (

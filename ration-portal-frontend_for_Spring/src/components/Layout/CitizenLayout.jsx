@@ -11,6 +11,7 @@ const CitizenLayout = () => {
         // { path: '/citizen/dashboard', label: 'Citizen Panel' },
         { path: '/citizen/ration-card', label: 'Digital Ration Card' },
         { path: '/citizen/distribution-history', label: 'My Ration History' },
+        { path: '/citizen/feedback', label: 'Rate My Shop' },
     ];
 
     return (

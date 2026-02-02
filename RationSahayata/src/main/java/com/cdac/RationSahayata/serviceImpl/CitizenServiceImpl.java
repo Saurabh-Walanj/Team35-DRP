@@ -49,6 +49,7 @@ public class CitizenServiceImpl implements CitizenService {
 		response.put("familyMemberCount", rationCard.getFamilyMemberCount());
 		response.put("address", rationCard.getAddress());
 		response.put("shopName", shop.getShopName());
+		response.put("shopkeeperId", shop.getShopkeeperId());
 		response.put("shopLocation", shop.getLocation());
 		response.put("status", rationCard.getStatus().toString());
 		response.put("issueDate", rationCard.getIssueDate());
@@ -89,6 +90,8 @@ public class CitizenServiceImpl implements CitizenService {
 			map.put("distributionMonth", d.getDistributionMonth());
 			map.put("distributionDate", d.getDistributionDate());
 			map.put("shopName", shop.getShopName());
+			map.put("shopkeeperId", shop.getShopkeeperId());
+			map.put("transactionId", d.getTransactionId());
 			map.put("status", d.getStatus().toString());
 			return map;
 		}).collect(Collectors.toList());

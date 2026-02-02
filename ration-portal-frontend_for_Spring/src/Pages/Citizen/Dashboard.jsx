@@ -1,12 +1,16 @@
-import { useEffect, useState } from 'react';
-import { citizenAPI, adminAPI } from '../../api';
+import { citizenAPI, adminAPI, shopkeeperAPI } from '../../api';
 import { toast } from 'react-toastify';
 import { getUserEmail } from '../../utils/authUtils';
+import FeedbackModal from '../../Components/FeedbackModal';
+
 
 const CitizenDashboard = () => {
     const [rationCard, setRationCard] = useState(null);
     const [entitlements, setEntitlements] = useState([]);
+    const [distributions, setDistributions] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [showFeedback, setShowFeedback] = useState(false);
+    const [selectedDistribution, setSelectedDistribution] = useState(null);
 
     useEffect(() => {
         fetchDashboardData();
@@ -19,8 +23,12 @@ const CitizenDashboard = () => {
             setRationCard(card);
 
             if (card && card.cardNumber) {
-                const allEntitlements = await adminAPI.getAllEntitlements();
+                const [allEntitlements, myDistributions] = await Promise.all([
+                    adminAPI.getAllEntitlements(),
+                    citizenAPI.getMyDistributions(email)
+                ]);
                 setEntitlements(allEntitlements || []);
+                setDistributions(myDistributions || []);
             }
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
@@ -129,7 +137,70 @@ const CitizenDashboard = () => {
 
 
 
-        </div>
+
+
+            <div className="bg-white border rounded-md p-4">
+                <h3 className="text-lg font-semibold mb-4">
+                    Recent Distributions & Feedback
+                </h3>
+
+                {distributions.length === 0 ? (
+                    <p className="text-gray-500 text-sm">No distribution history found.</p>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {distributions.map((dist) => (
+                            <div key={dist.distributionId} className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow bg-gray-50">
+                                <div className="flex justify-between items-start mb-2">
+                                    <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">
+                                        {dist.distributionMonth}
+                                    </span>
+                                    <span className="text-xs text-gray-500 font-mono">
+                                        {new Date(dist.distributionDate).toLocaleDateString()}
+                                    </span>
+                                </div>
+
+                                <h4 className="font-bold text-[#003D82] mb-1">{dist.shopName}</h4>
+                                <p className="text-sm text-gray-600 mb-3">
+                                    Recieved: <span className="font-bold text-black">{dist.grain} - {dist.quantityGiven}kg</span>
+                                </p>
+
+                                <button
+                                    onClick={() => {
+                                        setSelectedDistribution(dist);
+                                        setShowFeedback(true);
+                                    }}
+                                    className="w-full py-2 bg-white border-2 border-[#003D82] text-[#003D82] rounded-lg text-xs font-bold hover:bg-[#003D82] hover:text-white transition-all"
+                                >
+                                    Give Feedback
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {
+                showFeedback && selectedDistribution && (
+                    <FeedbackModal
+                        shopkeeperId={selectedDistribution.shopkeeperId}
+                        citizenEmail={rationCard.citizenEmail || getUserEmail()}
+                        onClose={() => setShowFeedback(false)}
+                        onSubmit={async (data) => {
+                            try {
+                                await shopkeeperAPI.addFeedback(data);
+                                toast.success('Thank you for your feedback!');
+                                setShowFeedback(false);
+                                // Optionally refresh data but not strictly needed
+                            } catch (err) {
+                                console.error(err);
+                                toast.error('Failed to submit feedback');
+                            }
+                        }}
+                    />
+                )
+            }
+
+        </div >
     );
 };
 

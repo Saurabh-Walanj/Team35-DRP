@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { adminAPI } from '../../api';
+import { paymentAPI } from '../../api';
 import DataTable from '../../components/DataTable';
 
 const PaymentLogs = () => {
@@ -12,7 +12,7 @@ const PaymentLogs = () => {
 
     const fetchPayments = async () => {
         try {
-            const data = await adminAPI.getAllPayments(); // Ensure this matches API method
+            const data = await paymentAPI.getAllPayments(); // Ensure this matches API method
             setPayments(data || []);
         } catch (error) {
             console.error('Error fetching payments:', error);

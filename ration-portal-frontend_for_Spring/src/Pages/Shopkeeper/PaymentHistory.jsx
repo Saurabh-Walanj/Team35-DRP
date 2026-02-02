@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { shopkeeperAPI } from '../../api';
 import DataTable from '../../components/DataTable';
 import { toast } from 'react-toastify';
+import { getUserId } from '../../utils/authUtils';
 
 const PaymentHistory = () => {
     const [payments, setPayments] = useState([]);
@@ -13,7 +14,8 @@ const PaymentHistory = () => {
 
     const fetchPayments = async () => {
         try {
-            const data = await shopkeeperAPI.getPaymentHistory();
+            const shopkeeperId = getUserId();
+            const data = await shopkeeperAPI.getPaymentHistory(shopkeeperId);
             setPayments(data || []);
         } catch (error) {
             console.error('Error fetching payments:', error);
