@@ -44,7 +44,7 @@ const DistributionSummary = () => {
         return logDate.getMonth() === now.getMonth() && logDate.getFullYear() === now.getFullYear();
     });
 
-    // Process Data for Google Chart (Last 6 Months)
+    // Process Data for Google Chart
     const chartData = (() => {
         const months = [];
         const today = new Date();
@@ -82,7 +82,7 @@ const DistributionSummary = () => {
     })();
 
     const chartOptions = {
-        title: 'Ration Allocation vs Distribution (Last 6 Months)',
+        title: 'Ration Allocation vs Distribution',
         hAxis: { title: 'Month' },
         vAxis: { title: 'Quantity (KG)', minValue: 0 },
         colors: ['#003D82', '#FF6B35'],

@@ -106,7 +106,7 @@ const DistributeRation = () => {
         try {
             const data = await shopkeeperAPI.checkRationStatus(citizen.cardNumber);
             if (data.isDistributed) {
-                toast.error(data.message, { autoClose: 5000 });
+                toast.error(data.message, { autoClose: 3000 });
                 // We still show data but maybe disable actions?
                 // Or clear it? User asked "should not be allowed... it should display user already paid"
                 setCitizenData(citizen);
@@ -143,10 +143,31 @@ const DistributeRation = () => {
         }, 0);
     };
 
-    const handleInitiateDistribution = () => {
-        const total = calculateTotalAmount();
-        setPaymentAmount(total);
-        setShowPaymentModal(true);
+    const handleInitiateDistribution = async () => {
+        if (selectedGrains.length === 0) {
+            toast.error('Select at least one grain type');
+            return;
+        }
+
+        try {
+            setOtpLoading(true);
+            const payload = {
+                cardNumber: cardNumber,
+                grains: selectedGrains
+            };
+
+            await shopkeeperAPI.validateDistribution(payload);
+
+            const total = calculateTotalAmount();
+            setPaymentAmount(total);
+            setShowPaymentModal(true);
+
+        } catch (error) {
+            console.error('Validation failed:', error);
+            toast.error(error.response?.data?.message || 'Validation failed');
+        } finally {
+            setOtpLoading(false);
+        }
     };
 
     const handlePaymentSuccess = async (details) => {
@@ -236,8 +257,8 @@ const DistributeRation = () => {
             setShowOtpModal(false);
 
             // Remove the processed citizen from the list locally to prevent re-selection
-            setCitizens(prev => prev.filter(c => c.cardNumber !== cardNumber));
-            // Reset form
+            // setCitizens(prev => prev.filter(c => c.cardNumber !== cardNumber));
+
             handleReset();
 
         } catch (err) {
@@ -410,7 +431,7 @@ const DistributeRation = () => {
 
                                 <button
                                     onClick={handleInitiateDistribution}
-                                    disabled={otpLoading || selectedGrains.length === 0 || isPaymentCompleted}
+                                    // disabled={otpLoading || selectedGrains.length === 0 || isPaymentCompleted}
                                     className="w-full py-4 bg-green-700 text-white rounded-lg font-bold text-sm hover:bg-green-600 transition-all shadow-xl active:scale-95 uppercase tracking-widest disabled:bg-gray-200 disabled:shadow-none"
                                 >
                                     {isPaymentCompleted ? 'Payment Completed - Verify OTP' : (otpLoading ? 'Processing...' : `Proceed to Pay ₹${calculateTotalAmount().toFixed(2)}`)}

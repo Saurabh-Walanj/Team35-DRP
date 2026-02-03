@@ -57,12 +57,12 @@ const PaymentModal = ({ amount, citizenName, onClose, onSuccess }) => {
                             <div className="bg-white p-4 rounded-xl border-2 border-[#003D82] shadow-sm mb-4">
                                 <QRCodeSVG
                                     value={`upi://pay?pa=shopkeeper@ration&pn=RationShop&am=${amount}&cu=INR`}
-                                    size={180}
+                                    size={150}
                                     level="H"
                                 />
                             </div>
                             <p className="text-xs text-gray-400 font-mono">Scan with any UPI App</p>
-                            <p className="text-xs text-orange-500 font-bold mt-2 animate-pulse">Simulated Payment Mode</p>
+                            {/* <p className="text-xs text-orange-500 font-bold mt-2 animate-pulse">Simulated Payment Mode</p> */}
                         </div>
                     ) : (
                         <div className="text-center animate-in zoom-in duration-300 space-y-4">

@@ -330,12 +330,12 @@ const ManageCitizens = () => {
 
                         <div className="p-10 space-y-8 bg-[#FFFBF0]/20">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <DetailItem label="Primary Beneficiary" value={selectedCitizen.headOfFamilyName} />
-                                <DetailItem label="Ration Card ID" value={selectedCitizen.cardNumber} />
-                                <DetailItem label="Communication Point" value={selectedCitizen.citizenEmail} />
-                                <DetailItem label="Family Structure" value={`${selectedCitizen.familyMemberCount} Certified Members`} />
-                                <div className="md:col-span-2">
-                                    <DetailItem label="Primary Residential Domicile" value={selectedCitizen.address} />
+                                <DetailItem label="Head Of Family" value={selectedCitizen.headOfFamilyName} />
+                                <DetailItem label="Ration Card Number" value={selectedCitizen.cardNumber} />
+                                <DetailItem label="Email" value={selectedCitizen.citizenEmail} />
+                                <DetailItem label="Family Members" value={`${selectedCitizen.familyMemberCount} Members`} />
+                                <div className="md:col-span-2 ">
+                                    <DetailItem label=" Residential Address" value={selectedCitizen.address} />
                                 </div>
                                 <div className="pt-4 border-t border-gray-100 md:col-span-2">
                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Registry Clearance Status</p>
@@ -364,7 +364,7 @@ const ManageCitizens = () => {
 const DetailItem = ({ label, value }) => (
     <div className="space-y-1">
         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{label}</p>
-        <p className="text-[#1A1A2E] font-bold text-lg">{value || 'N/A'}</p>
+        <p className="text-[#1A1A2E] font-bold text-[15px]">{value || 'N/A'}</p>
     </div>
 );
 

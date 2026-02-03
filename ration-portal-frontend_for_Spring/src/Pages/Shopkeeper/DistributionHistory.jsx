@@ -9,6 +9,7 @@ const DistributionHistory = () => {
     const [distributions, setDistributions] = useState([]);
     const [loading, setLoading] = useState(true);
 
+
     useEffect(() => {
         fetchDistributions();
     }, []);
